@@ -1,0 +1,163 @@
+// ============================================================================
+//  Colourable Combine-shield bubble  -  built for the Ranger Manhack SNPC
+//  Install to:  addons/<your addon>/materials/effects/physhacks/comshieldwall_colorable.vmt
+//  Loaded as:   Material("effects/physhacks/comshieldwall_colorable")
+//
+//  WHY NOT UnlitTwoTexture (the original shader)?
+//  The VDC wiki does list $color/$color2 on its UnlitTwoTexture page, but that
+//  table describes the modern (CS:GO-era) shader source - the very same table
+//  also contains $beachfoam ("Introduced with Dangerzone") and $CrosshairMode.
+//  GMod ships the old HL2-era build of that shader, which:
+//    * ignores $color / $color2            (confirmed by testing)
+//    * has no $vertexcolor / $vertexalpha  (not even the wiki claims these),
+//      so render.DrawSphere's colour argument AND its alpha are both dropped
+//    * never reads the color-modulation state, so render.SetColorModulation
+//      does nothing either
+//  => an UnlitTwoTexture bubble can NOT be tinted at runtime in GMod.
+//
+//  THE FIX (it is literally the wiki's own tip on that same page):
+//  "The same effect can be created using $detailblendmode 8 on UnlitGeneric."
+//    * $vertexcolor + $vertexalpha -> the per-draw colour/alpha of
+//      render.DrawSphere tint and fade the bubble. GMod's own
+//      render.SetColorMaterial() is an UnlitGeneric with exactly these two
+//      keys - that is why its sphere example recolours fine.
+//    * $detail + $detailblendmode 8 -> base x detail multiply, the same
+//      dual-texture multiply UnlitTwoTexture did, with both layers
+//      scrolling independently (see the TextureScroll proxies below).
+//
+//  TROUBLESHOOTING
+//    * If the bubble does not render at all, your engine build lacks the
+//      mode-8 shader combo: change $detailblendmode to 0, or delete the
+//      whole $detail block. You only lose the second layer - colouring
+//      keeps working either way.
+//    * VMTs are cached: after editing, run
+//      mat_reloadmaterial effects/physhacks/comshieldwall_colorable
+//      or restart the map.
+// ============================================================================
+"UnlitGeneric"
+{
+	// Animated shield texture (frames are driven by the PlayerProximity proxies below)
+	"$basetexture"			"Effects/Combineshield/comshieldwall"
+	"$basetexturetransform"		"center .5 .5 scale 1 1 rotate 0 translate 0 0"
+
+	// Second scrolling layer, multiplied with the base (the UnlitTwoTexture look)
+	"$detail"			"Effects/Combineshield/comshieldwall"
+	"$detailscale"			"1"
+	"$detailtexturetransform"	"center .5 .5 scale 1 1 rotate 0 translate 0 0"
+	"$detailblendmode"		"8"	// 8 = multiply (fallback: 0, or remove the $detail block)
+	"$detailblendfactor"		"1"	// not respected on UnlitGeneric - kept for clarity
+
+	// ================= COLORING SUPPORT =================
+	// These two make the per-draw colour AND alpha of render.DrawSphere /
+	// DrawSprite / DrawBeam work (per-vertex data provided by the engine).
+	"$vertexcolor"			"1"
+	"$vertexalpha"			"1"
+	// Static tint baked into the file, e.g. red = "[1 0 0]", cyan = "[0 1 1]".
+	// Also the channel GMod's Color Tool / Entity:SetColor() modulates.
+	// Leave white for the SNPC - it colours per draw call instead.
+	"$color"			"[1 1 1]"
+	"$color2"			"[1 1 1]"
+	// Safe with render.DrawSphere (GMod's own SetColorMaterial sets it too)
+	// and required if you ever put this material ON a model via SetSubMaterial.
+	"$model"			"1"
+	// =====================================================
+
+	"$translucent"			"1"
+	"$additive"			"1"
+	"$alpha"			"1"	// driven by the Sine flicker proxy below
+	"$nodecal"			"1"
+	// NOTE: no $envmap on purpose - it shows the black/magenta cubemap
+	// checkerboard in GMod (Facepunch issue #7039), and UnlitTwoTexture
+	// ignored it anyway, so nothing about the original look is lost.
+
+	// Scratch variables used by the proxies
+	"$gnoise"			"1"
+	"$playerdistance"		"0"
+	"$playerdistance2"		"1"
+	"$smallamount"			"0.1"
+	"$alpharesult"			"1"
+	"$alpharesultmin"		"1"
+	"$alpharesultmax"		"1"
+	"$hundred"			"100"
+	"$largeamount"			"1"
+	"$ten"				"24"
+	"$frameminusten"		"1"
+
+	"Proxies"
+	{
+		// --- texture frame animation from player distance (kept from original) ---
+		"PlayerProximity"
+		{
+			"resultVar"		"$playerdistance2"
+			"scale"			"0.2"
+		}
+		"Subtract"
+		{
+			"srcVar1"		"$playerdistance2"
+			"srcVar2"		"$ten"
+			"resultVar"		"$frameminusten"
+		}
+		"Clamp"
+		{
+			"srcVar1"		"$frameminusten"
+			"min"			"0"
+			"max"			"30"
+			"resultVar"		"$frame"
+		}
+
+		// --- flickering alpha that intensifies as the player gets closer (kept) ---
+		"PlayerProximity"
+		{
+			"resultVar"		"$playerdistance"
+			"scale"			"0.0009"
+		}
+		"GaussianNoise"
+		{
+			"minVal"		"0.8"
+			"maxVal"		"1"
+			"mean"			"0.7"
+			"halfwidth"		"0.3"
+			"resultVar"		"$gnoise"
+		}
+		"Subtract"
+		{
+			"srcVar1"		"$gnoise"
+			"srcVar2"		"$playerdistance"
+			"resultVar"		"$alpharesultmin"
+		}
+		"Multiply"
+		{
+			"srcVar1"		"$hundred"
+			"srcVar2"		"$playerdistance"
+			"resultVar"		"$largeamount"
+		}
+		"Add"
+		{
+			"srcVar1"		"$alpharesultmin"
+			"srcVar2"		"$smallamount"
+			"resultVar"		"$alpharesultmax"
+		}
+		"Sine"
+		{
+			"sineperiod"		"1.08"
+			"sinemin"		"$alpharesultmin"
+			"sinemax"		"$alpharesultmax"
+			"resultVar"		"$alpha"
+		}
+
+		// --- diagonal drift: base layer (was $texture2transform in the original) ---
+		"TextureScroll"
+		{
+			"texturescrollvar"	"$basetexturetransform"
+			"texturescrollrate"	"0.1"
+			"texturescrollangle"	"-45"
+		}
+		// --- diagonal drift: detail layer, faster so the two layers interfere ---
+		"TextureScroll"
+		{
+			"texturescrollvar"	"$detailtexturetransform"
+			"texturescrollrate"	"0.2"
+			"texturescrollangle"	"-45"
+		}
+	}
+}

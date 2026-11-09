@@ -1,0 +1,35 @@
+"VertexLitGeneric"
+{
+	"$baseTexture" "Models/Roller/rollermine_sheet_colorable"
+	"$bumpmap" "Models/Roller/rollermine_normal"
+
+	// ------------------------------------------------------------------
+	// TINTING
+	// Basetexture ALPHA decides WHERE tint is applied (opaque = tinted,
+	// transparent = untinted). $color2 / GMod colour tool provide the COLOR.
+	// ------------------------------------------------------------------
+	"$blendtintbybasealpha" "1"
+	"$blendtintcoloroverbase" "0"
+	"$color2" "[1 1 1]"
+
+	// ------------------------------------------------------------------
+	// GLOW (replaces $selfillum!)
+	// $selfillum cannot coexist with $blendtintbybasealpha (shader combo
+	// fails to load -> glow dies). Documented workaround: add the glow
+	// with a detail texture in blend mode 5 = unlit additive, applied
+	// after lighting, so it glows even in darkness.
+	// ------------------------------------------------------------------
+	"$detail" "Models/Roller/rollermine_sheet_colorable_glowmask"
+	"$detailscale" "1"
+	"$detailblendmode" "5"
+	"$detailblendfactor" "1"
+
+	// ------------------------------------------------------------------
+	// ENVMAP (unchanged from the original material)
+	// ------------------------------------------------------------------
+	"$envmap" "Env_cubemap"
+	"$normalmapalphaenvmapmask" 1
+	"$envmapcontrast" "1"
+	"$envmapsaturation" "[1 1 1]"
+//	"$envmaptint" "[.6 .7 .8]"
+}

@@ -1,0 +1,8 @@
+"UnLitGeneric"
+{
+    "$basetexture" "models/Roller/rollermine_glow_colorable"
+    "$additive"    "1"
+    "$translucent" "1"
+    "$model"       "1"
+    "$color" "[1 1 1]"
+}
